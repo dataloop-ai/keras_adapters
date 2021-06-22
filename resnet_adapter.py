@@ -55,7 +55,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         # Currently no training for the resnet model
         raise NotImplementedError("Please implement 'train' method in {}".format(self.__class__.__name__))
 
-    def predict(self, batch, reshape=False):
+    def predict(self, batch, reshape=True):
         """ Model inference (predictions) on batch of images
 
         :param batch: `np.ndarray`
