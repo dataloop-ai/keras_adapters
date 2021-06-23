@@ -82,7 +82,7 @@ class ModelAdapter(dl.BaseModelAdapter):
                 adapter=self,
                 collection=None
             )
-            batch_predictions.appedns(item_pred)
+            batch_predictions.append(item_pred)
             self.logger.debug("Predicted {:20} ({:1.3f})".format(pred_label, pred_score))
 
         return batch_predictions
