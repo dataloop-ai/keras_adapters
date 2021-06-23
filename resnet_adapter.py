@@ -4,6 +4,7 @@ from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
+import os
 import itertools
 
 # implementation base on https://keras.io/api/applications/
@@ -34,6 +35,12 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         input_shape = getattr(self, 'input_shape', None)
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
+        # https://stackoverflow.com/a/59238039/16076929
+        self.model.make_predict_function()
+        self.logger.info("ResNet50 Model loaded")
+        #keras_dir = os.environ.get('KERAS_HOME', '')
+        keras_dir = os.path.expanduser('~/.keras')
+        self.logger.info("Keras dir {} content: {}".format(keras_dir, os.listdir(keras_dir)))
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
