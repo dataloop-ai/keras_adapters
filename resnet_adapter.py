@@ -75,7 +75,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
         for pred in decode_predictions(preds):
-            pred_label, pred_score = pred[0][:2]   # 0 - state the first (highest) predictions
+            pred_label, pred_score = pred[0][1:3]   # 0 - state the first (highest) predictions
             item_pred = dl.ml.predictions_utils.add_classification(
                 label=pred_label,
                 score=pred_score,
