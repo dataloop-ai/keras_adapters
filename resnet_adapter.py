@@ -37,10 +37,14 @@ class ModelAdapter(dl.BaseModelAdapter):
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
         # https://stackoverflow.com/a/59238039/16076929
         self.model.make_predict_function()
-        self.logger.info("ResNet50 Model loaded")
+        msg = "ResNet50 Model loaded"
+        self.logger.info(msg)
+        print(msg)
         #keras_dir = os.environ.get('KERAS_HOME', '')
         keras_dir = os.path.expanduser('~/.keras')
-        self.logger.info("Keras dir {} content: {}".format(keras_dir, os.listdir(keras_dir)))
+        msg = "Keras dir {} content: {}".format(keras_dir, os.listdir(keras_dir))
+        self.logger.info(msg)
+        print(msg)
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
