@@ -6,7 +6,7 @@ from keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
 import os
 import itertools
-V = '0.8.1'
+V = '0.8.3'
 
 # implementation base on https://keras.io/api/applications/
 
@@ -40,19 +40,22 @@ class ModelAdapter(dl.BaseModelAdapter):
         try:
             # https://stackoverflow.com/a/59238039/16076929
             self.model.make_predict_function()
+            keras.backend.clear_session()
             print("Keras workaround worked!")
-        except Exception:
+        except Exception as err:
             print("Keras workaround Failed....")
+            print(err)
 
-        msg = "ResNet50 Model loaded"
+        msg = "ResNet50 Model loaded. Keras version {}".format(keras.__version__)
         self.logger.info(msg)
         print(msg)
         #keras_dir = os.environ.get('KERAS_HOME', '')
         keras_dir = os.path.expanduser('~/.keras')
         keras_models_dir = os.path.join(keras_dir, 'models')
-        msg = "Keras dir {} content: {}".format(keras_models_dir, os.listdir(keras_models_dir))
+        msg = "Load complete. Keras dir {} content: {}".format(keras_models_dir, os.listdir(keras_models_dir))
         self.logger.info(msg)
         print(msg)
+        self.model.summary()
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
