@@ -35,8 +35,13 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         input_shape = getattr(self, 'input_shape', None)
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
-        # https://stackoverflow.com/a/59238039/16076929
-        self.model.make_predict_function()
+        try:
+            # https://stackoverflow.com/a/59238039/16076929
+            self.model.make_predict_function()
+            print("Keras workaround worked!")
+        except Exception:
+            print("Keras workaround Failed....")
+
         msg = "ResNet50 Model loaded"
         self.logger.info(msg)
         print(msg)
