@@ -6,6 +6,7 @@ from tensorflow.keras.applications.resnet50 import preprocess_input, decode_pred
 import numpy as np
 import os
 import itertools
+V = '0.8.0'
 
 # implementation base on https://keras.io/api/applications/
 
@@ -20,6 +21,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
+        print("Initialized model_adapter {!r}. V {}".format(self.model_name, V))
 
     # ===============================
     # NEED TO IMPLEMENT THESE METHODS
