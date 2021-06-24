@@ -1,12 +1,12 @@
 import dtlpy as dl
 import keras
-from tensorflow.keras.applications.resnet50 import ResNet50
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
+from keras.applications.resnet50 import ResNet50
+from keras.preprocessing import image
+from keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
 import os
 import itertools
-V = '0.8.0'
+V = '0.8.1'
 
 # implementation base on https://keras.io/api/applications/
 
@@ -21,7 +21,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
-        print("Initialized model_adapter {!r}. V {}".format(self.model_name, V))
+        print("Initialized model_adapter {!r}. Version {}".format(self.model_name, V))
 
     # ===============================
     # NEED TO IMPLEMENT THESE METHODS
@@ -49,7 +49,8 @@ class ModelAdapter(dl.BaseModelAdapter):
         print(msg)
         #keras_dir = os.environ.get('KERAS_HOME', '')
         keras_dir = os.path.expanduser('~/.keras')
-        msg = "Keras dir {} content: {}".format(keras_dir, os.listdir(keras_dir))
+        keras_models_dir = os.path.joink(keras_dir, 'models')
+        msg = "Keras dir {} content: {}".format(keras_models_dir, os.listdir(keras_models_dir))
         self.logger.info(msg)
         print(msg)
 
