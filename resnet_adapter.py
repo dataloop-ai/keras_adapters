@@ -49,7 +49,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         print(msg)
         #keras_dir = os.environ.get('KERAS_HOME', '')
         keras_dir = os.path.expanduser('~/.keras')
-        keras_models_dir = os.path.joink(keras_dir, 'models')
+        keras_models_dir = os.path.join(keras_dir, 'models')
         msg = "Keras dir {} content: {}".format(keras_models_dir, os.listdir(keras_models_dir))
         self.logger.info(msg)
         print(msg)
