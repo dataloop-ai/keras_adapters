@@ -1,5 +1,6 @@
 import dtlpy as dl
 import keras
+import traceback
 from keras.applications.resnet50 import ResNet50
 from keras.preprocessing import image
 from keras.applications.resnet50 import preprocess_input, decode_predictions
@@ -39,12 +40,17 @@ class ModelAdapter(dl.BaseModelAdapter):
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
         try:
             # https://stackoverflow.com/a/59238039/16076929
-            self.model.make_predict_function()
-            keras.backend.clear_session()
+            self.model._make_predict_function()
             print("Keras workaround worked!")
         except Exception as err:
-            print("Keras workaround Failed....")
-            print(err)
+            print("Keras workaround Failed...." + str(err))
+            traceback.print_exc()
+        try:
+            keras.backend.clear_session()
+            print("Keras workaround 2 Worked!")
+        except Exception as err:
+            print("Keras workaround 2 Failed...." + str(err))
+            traceback.print_exc()
 
         msg = "ResNet50 Model loaded. Keras version {}".format(keras.__version__)
         self.logger.info(msg)
@@ -88,6 +94,8 @@ class ModelAdapter(dl.BaseModelAdapter):
             from skimage.transform import resize
             batch_reshape = []
             for img in batch:
+                if np.max(img) > 1:
+                    img /= 255
                 batch_reshape.append(resize(img, output_shape=(224, 224)))
             # construct as batch
             batch = np.array(batch_reshape)
