@@ -7,7 +7,7 @@ from keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
 import os
 import itertools
-V = '0.8.3'
+V = '0.9.1'
 
 # implementation base on https://keras.io/api/applications/
 
@@ -103,8 +103,9 @@ class ModelAdapter(dl.BaseModelAdapter):
             preds = self.model.predict(x)
         except Exception as err:
             print('Failed to predict because: '+ str(err))
+            print('But.. model input {}; model output: {}'.format(self.model.input, self.model.output))
             self.model.summary()
-            self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
+            self.model = ResNet50(weights=self.weights_source, input_shape=None, include_top=True)
             preds = self.model.predict(x)
             print("WOWOW... this worked?!?")
 
