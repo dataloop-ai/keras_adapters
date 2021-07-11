@@ -38,19 +38,19 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         input_shape = getattr(self, 'input_shape', None)
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
-        try:
-            # https://stackoverflow.com/a/59238039/16076929
-            self.model._make_predict_function()
-            print("Keras workaround worked!")
-        except Exception as err:
-            print("Keras workaround Failed...." + str(err))
-            traceback.print_exc()
-        try:
-            keras.backend.clear_session()
-            print("Keras workaround 2 Worked!")
-        except Exception as err:
-            print("Keras workaround 2 Failed...." + str(err))
-            traceback.print_exc()
+        # try:
+        #     # https://stackoverflow.com/a/59238039/16076929
+        #     self.model._make_predict_function()
+        #     print("Keras workaround worked!")
+        # except Exception as err:
+        #     print("Keras workaround Failed...." + str(err))
+        #     traceback.print_exc()
+        # try:
+        #     keras.backend.clear_session()
+        #     print("Keras workaround 2 Worked!")
+        # except Exception as err:
+        #     print("Keras workaround 2 Failed...." + str(err))
+        #     traceback.print_exc()
 
         msg = "ResNet50 Model loaded. Keras version {}".format(keras.__version__)
         self.logger.info(msg)
@@ -94,13 +94,11 @@ class ModelAdapter(dl.BaseModelAdapter):
             from skimage.transform import resize
             batch_reshape = []
             for img in batch:
-                if np.max(img) > 1:
-                    img /= 255
                 batch_reshape.append(resize(img, output_shape=(224, 224)))
             # construct as batch
             batch = np.array(batch_reshape)
 
-        x = preprocess_input(batch)
+        x = preprocess_input(batch, mode='tf')
         preds = self.model.predict(x)
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
