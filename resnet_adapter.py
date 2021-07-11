@@ -98,8 +98,16 @@ class ModelAdapter(dl.BaseModelAdapter):
             # construct as batch
             batch = np.array(batch_reshape)
 
-        x = preprocess_input(batch, mode='tf')
-        preds = self.model.predict(x)
+        try:
+            x = preprocess_input(batch, mode='tf')
+            preds = self.model.predict(x)
+        except Exception as err:
+            print('Failed to predict because: '+ str(err))
+            self.model.summary()
+            self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
+            preds = self.model.predict(x)
+            print("WOWOW... this worked?!?")
+
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
         for pred in decode_predictions(preds):
