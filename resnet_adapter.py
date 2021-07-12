@@ -4,10 +4,11 @@ import traceback
 from keras.applications.resnet50 import ResNet50
 from keras.preprocessing import image
 from keras.applications.resnet50 import preprocess_input, decode_predictions
+import tensorflow as tf
 import numpy as np
 import os
 import itertools
-V = '0.9.1'
+VER = '1.0.0'
 
 # implementation base on https://keras.io/api/applications/
 
@@ -22,7 +23,8 @@ class ModelAdapter(dl.BaseModelAdapter):
 
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
-        print("Initialized model_adapter {!r}. Version {}".format(self.model_name, V))
+        self.graph = None
+        print("Initialized model_adapter {!r}. Version {}".format(self.model_name, VER))
 
     # ===============================
     # NEED TO IMPLEMENT THESE METHODS
@@ -38,6 +40,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         input_shape = getattr(self, 'input_shape', None)
         self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
+        self.graph = tf.get_default_graph()
         # try:
         #     # https://stackoverflow.com/a/59238039/16076929
         #     self.model._make_predict_function()
@@ -99,8 +102,10 @@ class ModelAdapter(dl.BaseModelAdapter):
             batch = np.array(batch_reshape)
 
         try:
-            x = preprocess_input(batch, mode='tf')
-            preds = self.model.predict(x)
+            with self.graph.as_default():
+                x = preprocess_input(batch, mode='tf')
+                preds = self.model.predict(x)
+                print("pred with saving the graph worked.....")
         except Exception as err:
             print('Failed to predict because: '+ str(err))
             print('But.. model input {}; model output: {}'.format(self.model.input, self.model.output))
