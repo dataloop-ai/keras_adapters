@@ -26,6 +26,7 @@ class ModelAdapter(dl.BaseModelAdapter):
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
         self.graph = None
+        self.sess = None
 
     # ===============================
     # NEED TO IMPLEMENT THESE METHODS
@@ -41,6 +42,11 @@ class ModelAdapter(dl.BaseModelAdapter):
         use_pretrained = getattr(self, 'use_pretrained', False)
         input_shape = getattr(self, 'input_shape', None)
         include_top = getattr(self, 'include_top', True)
+
+        self.sess = tf.Session()
+        self.graph = tf.get_default_graph()
+        tf.keras.backend.set_session(self.sess)
+
 
         msg = "Loading the model. pretrained = {}, local_path {}; input_shape {}".format(
                 use_pretrained, local_path, input_shape)
@@ -81,7 +87,6 @@ class ModelAdapter(dl.BaseModelAdapter):
             self.model = keras.models.load_model(model_path)
             self.logger.info("Loaded model from {} succesfully".format(model_path))
 
-        self.graph = tf.get_default_graph()
         self.model.summary()
 
     def save(self, local_path, **kwargs):
@@ -122,7 +127,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         """ Model inference (predictions) on batch of images
 
         :param batch: `np.ndarray`
-        :return: `List[list[self.ClassPrediction]]`  prediction results by len(batch)
+        :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
         if reshape:
             # self._np_resize_util(batch, output_shape=self.input_shape)
@@ -134,6 +139,7 @@ class ModelAdapter(dl.BaseModelAdapter):
             batch = np.array(batch_reshape)
 
         with self.graph.as_default():
+            tf.keras.backend.set_session(self.sess)
             x = preprocess_input(batch)  #, mode='tf')
             preds = self.model.predict(x)
 
