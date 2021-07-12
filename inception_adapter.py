@@ -39,6 +39,10 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param local_path: if None uses default of kears.application
         """
         use_pretrained = getattr(self, 'use_pretrained', False)
+        msg = "Loading the model. pretrained = {}, local_path {}".format(use_pretrained, local_path)
+        print(msg)
+        self.logger.info(msg)
+
         if local_path is None or use_pretrained :
             input_shape = getattr(self, 'input_shape', None)
             include_top = getattr(self, 'include_top', True)
