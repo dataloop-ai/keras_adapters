@@ -38,8 +38,8 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         :param local_path: if None uses default of kears.application
         """
-
-        if local_path is None:
+        use_pretrained = getattr(self, 'use_pretrained', False)
+        if local_path is None or use_pretrained :
             input_shape = getattr(self, 'input_shape', None)
             include_top = getattr(self, 'include_top', True)
             if include_top:
