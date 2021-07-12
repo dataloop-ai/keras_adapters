@@ -4,7 +4,8 @@ import traceback
 from keras.applications.resnet50 import ResNet50
 from keras.preprocessing import image
 from keras.applications.resnet50 import preprocess_input, decode_predictions
-import tensorflow as tf
+from keras.backend import tf
+# import tensorflow as tf
 import numpy as np
 import os
 import itertools
@@ -101,18 +102,9 @@ class ModelAdapter(dl.BaseModelAdapter):
             # construct as batch
             batch = np.array(batch_reshape)
 
-        try:
-            with self.graph.as_default():
-                x = preprocess_input(batch, mode='tf')
-                preds = self.model.predict(x)
-                print("pred with saving the graph worked.....")
-        except Exception as err:
-            print('Failed to predict because: '+ str(err))
-            print('But.. model input {}; model output: {}'.format(self.model.input, self.model.output))
-            self.model.summary()
-            self.model = ResNet50(weights=self.weights_source, input_shape=None, include_top=True)
+        with self.graph.as_default():
+            x = preprocess_input(batch, mode='tf')
             preds = self.model.predict(x)
-            print("WOWOW... this worked?!?")
 
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
