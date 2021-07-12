@@ -117,7 +117,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         self.model.fit(X, Y, epochs=5, callbacks=None)  # validation_data=...
         self.logger.info("Training completed")
 
-    def predict(self, batch, reshape=False, verbose=True):
+    def predict(self, batch, reshape=True, verbose=True):
         """ Model inference (predictions) on batch of images
 
         :param batch: `np.ndarray`
