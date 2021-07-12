@@ -20,7 +20,7 @@ class ModelAdapter(dl.BaseModelAdapter):
     _defaults = {
         'weights_source': 'imagenet',
         'model_fname': 'my_ception.h5',
-        'input_shape': (229,229,3),
+        'input_shape': (299,299,3),
     }
 
     def __init__(self, model_entity):
