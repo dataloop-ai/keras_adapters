@@ -39,13 +39,18 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param local_path: if None uses default of kears.application
         """
         use_pretrained = getattr(self, 'use_pretrained', False)
-        msg = "Loading the model. pretrained = {}, local_path {}".format(use_pretrained, local_path)
+        input_shape = getattr(self, 'input_shape', None)
+        include_top = getattr(self, 'include_top', True)
+
+        if len(input_shape) < 3 and include_top == True:
+            input_shape = [l for l in input_shape] + [3]
+
+        msg = "Loading the model. pretrained = {}, local_path {}; input_shape {}".format(
+                use_pretrained, local_path, input_shape)
         print(msg)
         self.logger.info(msg)
 
         if local_path is None or use_pretrained :
-            input_shape = getattr(self, 'input_shape', None)
-            include_top = getattr(self, 'include_top', True)
             if include_top:
                 self.model = InceptionV3(weights=self.weights_source, input_shape=input_shape, include_top=include_top)
                 self.logger.info("Loaded pretrained InceptionV3 model ({})".format(self.model.name))
