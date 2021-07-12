@@ -20,7 +20,7 @@ class ModelAdapter(dl.BaseModelAdapter):
     _defaults = {
         'weights_source': 'imagenet',
         'model_fname': 'my_ception.h5',
-        'input_shape': (229,229),
+        'input_shape': (229,229,3),
     }
 
     def __init__(self, model_entity):
@@ -41,9 +41,6 @@ class ModelAdapter(dl.BaseModelAdapter):
         use_pretrained = getattr(self, 'use_pretrained', False)
         input_shape = getattr(self, 'input_shape', None)
         include_top = getattr(self, 'include_top', True)
-
-        if len(input_shape) < 3 and include_top == True:
-            input_shape = [l for l in input_shape] + [3]
 
         msg = "Loading the model. pretrained = {}, local_path {}; input_shape {}".format(
                 use_pretrained, local_path, input_shape)
