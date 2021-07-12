@@ -148,7 +148,7 @@ class ModelAdapter(dl.BaseModelAdapter):
                 collection=None
             )
             self.logger.debug("Predicted {:20} ({:1.3f})".format(pred_label, pred_score))
-            batch_predictions.appedns(item_pred)
+            batch_predictions.append(item_pred)
         return batch_predictions
 
     def convert(self, local_path, **kwargs):
