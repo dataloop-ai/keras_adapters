@@ -113,7 +113,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         X, Y = [], []
         for ann in anns:
             img_path, label = ann.strip().split(' - ')
-            X.append(np.array(Image.open(img_path).resize(self.input_shape)))
+            X.append(np.array(Image.open(img_path).resize(self.input_shape[:2])))
             Y.append(int(label))
         X = np.array(X)
         Y = keras.utils.to_categorical(Y)  # Convert to matrix - due to sparce categorical cross entropy loss
