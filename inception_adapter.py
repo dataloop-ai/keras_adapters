@@ -82,6 +82,7 @@ class ModelAdapter(dl.BaseModelAdapter):
             self.logger.info("Loaded model from {} succesfully".format(model_path))
 
         self.graph = tf.get_default_graph()
+        self.model.summary()
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
@@ -128,12 +129,12 @@ class ModelAdapter(dl.BaseModelAdapter):
             from skimage.transform import resize
             batch_reshape = []
             for img in batch:
-                batch_reshape.append(resize (img, output_shape=self.input_shape))
+                batch_reshape.append(resize (img, output_shape=self.input_shape[:2]))
             # construct as batch
             batch = np.array(batch_reshape)
 
         with self.graph.as_default():
-            x = preprocess_input(batch)
+            x = preprocess_input(batch)  #, mode='tf')
             preds = self.model.predict(x)
 
         batch_predictions = []
