@@ -1,13 +1,14 @@
-import dtlpy as dl
-import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.applications.inception_v3 import InceptionV3
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.inception_v3 import preprocess_input, decode_predictions
-from tensorflow.keras.layers import GlobalAveragePooling2D, Dense
+from tensorflow.keras.layers import Dense
 from tensorflow.keras import Model
 import numpy as np
-import itertools
+import json
+import os
+from skimage.transform import resize
+
+import dtlpy as dl
+from dtlpy.ml import train_utils
+from dtlpy.ml.ml_dataset import get_keras_dataset
 
 
 class ModelAdapter(dl.BaseModelAdapter):
@@ -17,20 +18,14 @@ class ModelAdapter(dl.BaseModelAdapter):
     The class bind Dataloop model and snapshot entities with model code implementation
     """
 
-    _defaults = {
-        'weights_source': 'imagenet',
-        'model_fname': 'my_ception.h5',
-        'input_shape': (299,299,3),
+    configurations = {
+        'weights_filename': 'model.hdf5',
+        'classes_filename': 'classes.json',
+        'input_shape': (299, 299)
     }
 
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
-        self.graph = None
-        self.sess = None
-
-    # ===============================
-    # NEED TO IMPLEMENT THESE METHODS
-    # ===============================
 
     def load(self, local_path, **kwargs):
         """ Loads model and populates self.model with a `runnable` model
@@ -39,54 +34,18 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         :param local_path: if None uses default of kears.application
         """
-        use_pretrained = getattr(self, 'use_pretrained', False)
-        input_shape = getattr(self, 'input_shape', None)
-        include_top = getattr(self, 'include_top', True)
+        classes_filename = self.snapshot.configuration.get('classes_filename', 'classes.json')
+        weights_filename = self.snapshot.configuration.get('weights_filename', 'model.hdf5')
+        # load classes
+        with open(os.path.join(local_path, classes_filename)) as f:
+            self.label_map = json.load(f)
 
-        self.sess = tf.Session()
-        self.graph = tf.get_default_graph()
-        tf.keras.backend.set_session(self.sess)
-
-
-        msg = "Loading the model. pretrained = {}, local_path {}; input_shape {}".format(
-                use_pretrained, local_path, input_shape)
-        print(msg)
-        self.logger.info(msg)
-
-        if local_path is None or use_pretrained :
-            if include_top:
-                self.model = InceptionV3(weights=self.weights_source, input_shape=input_shape, include_top=include_top)
-                self.logger.info("Loaded pretrained InceptionV3 model ({})".format(self.model.name))
-            else:  # we build a new model
-                # TODO: change to resnet shapes...
-                # create the base pre-trained model
-                base_model = InceptionV3(weights=self.weights_source, input_shape=input_shape, include_top=False)
-
-                # add a global spatial average pooling layer
-                x = base_model.output
-                x = GlobalAveragePooling2D()(x)
-                # let's add a fully-connected layer
-                x = Dense(1024, activation='relu')(x)
-                # and a logistic layer -- number of classes should be an attribute
-                predictions = Dense(self.nof_classes, activation='softmax')(x)
-
-                # this is the model we will train
-                self.model = Model(inputs=base_model.input, outputs=predictions)
-
-                # first: train only the top layers (which were randomly initialized)
-                # i.e. freeze all convolutional InceptionV3 layers
-                for layer in base_model.layers:
-                    layer.trainable = False
-
-                # compile the model (should be done *after* setting layers to non-trainable)
-                self.model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
-                self.logger.info("Created new trainalbe InceptionV3 model with {} classes. ({})".
-                                 format(self.nof_classes, self.model.name))
-        else:
-            model_path = "{d}/{f}.h5".format(d=local_path,f=self.model_name)
-            self.model = keras.models.load_model(model_path)
-            self.logger.info("Loaded model from {} succesfully".format(model_path))
-
+        # self.sess = tf.Session()
+        # self.graph = tf.get_default_graph()
+        # tf.keras.backend.set_session(self.sess)
+        model_path = os.path.join(local_path, weights_filename)
+        self.model = keras.models.load_model(os.path.join(local_path, weights_filename))
+        self.logger.info("Loaded model from {} successfully".format(model_path))
         self.model.summary()
 
     def save(self, local_path, **kwargs):
@@ -100,64 +59,104 @@ class ModelAdapter(dl.BaseModelAdapter):
         """
         # See https://keras.io/guides/serialization_and_saving/  - which best method to save  (they recomand without h5 file)
         # self.model.save(local_path="{}.{}".format(local_path, self.model_fname))
-        self.model.save("{d}/{f}.h5".format(d=local_path,f=self.model_name))
+        weights_filename = kwargs.get('weights_filename', 'model.hdf5')
+        classes_filename = kwargs.get('classes_filename', 'classes.json')
 
-    def train(self, local_path, dump_path, **kwargs):
+        self.model.save(os.path.join(local_path, weights_filename))
+        with open(os.path.join(local_path, classes_filename), 'w') as f:
+            json.dump(self.label_map, f)
+        self.snapshot.configuration['weights_filename'] = weights_filename
+        self.snapshot.configuration['classes_filename'] = classes_filename
+        self.snapshot.configuration['label_map'] = self.label_map
+        self.snapshot.update()
+
+    def train(self, data_path, output_path, **kwargs):
         """ Train the model according to data in local_path and save the snapshot to dump_path
 
             Virtual method - need to implement
         """
-        from PIL import Image
+        config = self.configurations
+        config.update(self.snapshot.configuration)
+        num_epochs = config.get('num_epochs', 10)
+        batch_size = config.get('batch_size', 64)
+        input_size = config.get('input_size', (299, 299))
 
-        # TODO: create the new dataset and test it
-        with open("{}/ann.txt".format(local_path), 'r') as f:
-            anns = f.readlines()
+        ####################
+        # Prepare the data #
+        ####################
+        def preprocess(x):
+            x = resize(x, output_shape=input_size)
+            x /= 255
+            x *= 2
+            x -= 1
+            return x
 
-        X, Y = [], []
-        for ann in anns:
-            img_path, label = ann.strip().split(' - ')
-            X.append(np.array(Image.open(img_path).resize(self.input_shape[:2])))
-            Y.append(int(label))
-        X = np.array(X)
-        Y = keras.utils.to_categorical(Y)  # Convert to matrix - due to sparce categorical cross entropy loss
-        self.model.fit(X, Y, epochs=5, callbacks=None)  # validation_data=...
+        transforms = [
+            preprocess
+        ]
+        train_dataset = get_keras_dataset()(data_path=os.path.join(data_path, 'train'),
+                                            dataset_entity=self.snapshot.dataset,
+                                            annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                            transforms=transforms,
+                                            batch_size=batch_size,
+                                            to_categorical=True)
+        val_dataset = get_keras_dataset()(data_path=os.path.join(data_path, 'validation'),
+                                          dataset_entity=self.snapshot.dataset,
+                                          annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                          batch_size=batch_size,
+                                          transforms=transforms,
+                                          to_categorical=True)
+
+        # replace head with new number of calsses
+        output = self.model.layers[-2].output
+        pred = Dense(train_dataset.num_classes, activation='softmax')(output)
+        self.model = Model(inputs=self.model.input, outputs=pred)
+
+        self.model.compile(optimizer='rmsprop',
+                           loss='categorical_crossentropy')
+        self.model.fit(train_dataset,
+                       validation_data=val_dataset,
+                       epochs=num_epochs)
         self.logger.info("Training completed")
 
-    def predict(self, batch, reshape=True, verbose=True):
+    def predict(self, batch, **kwargs):
         """ Model inference (predictions) on batch of images
 
         :param batch: `np.ndarray`
         :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
-        if reshape:
-            # self._np_resize_util(batch, output_shape=self.input_shape)
-            from skimage.transform import resize
-            batch_reshape = []
-            for img in batch:
-                batch_reshape.append(resize (img, output_shape=self.input_shape[:2]))
-            # construct as batch
-            batch = np.array(batch_reshape)
+        config = self.configurations
+        config.update(self.snapshot.configuration)
+        input_size = config.get('input_size', (299, 299))
 
-        with self.graph.as_default():
-            tf.keras.backend.set_session(self.sess)
-            x = preprocess_input(batch)  #, mode='tf')
-            preds = self.model.predict(x)
+        def preprocess(x):
+            x = resize(x, output_shape=input_size)
+            x /= 255
+            x *= 2
+            x -= 1
+            return x
 
-        batch_predictions = []
-        for pred in decode_predictions(preds):
-            # pred is a list (by scores) of tuples (idx, label_name, score)
-            pred_label, pred_score = pred[0][1:]   # 0 - state the first (highest) predictions
-            item_pred = dl.ml.predictions_utils.add_classification(
-                label=pred_label,
-                score=pred_score,
-                adapter=self,
-                collection=None
-            )
-            self.logger.debug("Predicted {:20} ({:1.3f})".format(pred_label, pred_score))
-            batch_predictions.append(item_pred)
-        return batch_predictions
+        batch_reshape = list()
+        for img in batch:
+            batch_reshape.append(preprocess(img))
+        batch = np.array(batch_reshape)
+        preds = self.model.predict(batch)
+        batch_collection = list()
+        for pred in preds:
+            label = self.label_map[str(np.argmax(pred))]
+            score = np.max(pred)
+            annotations = dl.AnnotationCollection()
+            annotations.add(annotation_definition=dl.Classification(label=label),
+                            model_info={
+                                'name': self.model_entity.name,
+                                'confidence': float(score),
+                                'modelId': self.model_entity.id,
+                                'snapshotId': self.snapshot.id
+                            })
+            batch_collection.append(annotations)
+        return batch_collection
 
-    def convert(self, local_path, **kwargs):
+    def convert_from_dtlpy(self, data_path, **kwargs):
         """ Convert Dataloop structure data to model structured
 
             e.g. take dlp dir structure and construct annotation file
@@ -165,22 +164,59 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param local_path: `str` local File System directory path where we already downloaded the data from dataloop platform
         :return:
         """
-        from glob import glob
-        import json
-        ann_path = local_path + '/ann.txt'
-        with open(ann_path, 'w') as f:
-            for ann_json in glob("{}/json/*.json".format(local_path)):
-                dlp_ann = json.load(open(ann_json, 'r'))
-                img_path = local_path + '/items/' + dlp_ann['filename']
-                f.write("{p} - {l}\n".format(p=img_path,
-                                             l=self.snapshot.label_map.get(dlp_ann['annotations'][0]['label'], -1 )
-                                             ))
-        self.logger.info("created annotaion file : {}".format(ann_path))
-        return ann_path
-
-    def convert_dlp(self, items):
-        """ This should implement similar to convert only to work on dlp items.  -> meaning create the converted version from items entities"""
-        # TODO
-        pass
+        ...
 
 
+def train():
+    dl.setenv('prod')
+    project = dl.projects.get('COCO ors', '729659ec-6d7f-11e8-8d00-42010a8a002b')
+    model = project.models.get('inceptionv3')
+    snapshot = model.snapshots.get('sheep-soft-augmentations')
+    model.snapshots.list().to_df()
+    self = model.build()
+    self.load_from_snapshot(snapshot=snapshot,
+                            local_path=snapshot.bucket.local_path)
+    root_path, data_path, output_path = train_utils.prepare_training(snapshot=snapshot,
+                                                                     adapter=self,
+                                                                     root_path=os.path.join('tmp', snapshot.id))
+    # Start the Train
+    print("Training {!r} with snapshot {!r} on data {!r}".format(model.name, snapshot.id, data_path))
+    print("Starting train with data at {}".format(data_path))
+
+    self.snapshot.configuration = {'batch_size': 16,
+                                   'start_epoch': 0,
+                                   'num_epochs': 2,
+                                   'input_size': 256}
+
+
+def global_creation():
+    project = dl.projects.get('COCO ors')
+    # codebase = dl.create(
+    #     src_path=r'E:\ModelsZoo\pytorch_adapters-master',
+    #     entry_point='resnet_adapter.py'
+    # )
+    codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
+                              git_tag='master')
+    model = project.models.create(model_name='InceptionV3',
+                                  output_type=dl.AnnotationType.CLASSIFICATION,
+                                  is_global=True,
+                                  entry_point='inception_adapter.py',
+                                  class_name='ModelAdapter',
+                                  codebase=codebase)
+
+    bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
+    bucket = dl.GCSBucket(gcs_project_name='viewo-main',
+                          gcs_bucket_name='model-mgmt-snapshots',
+                          gcs_prefix='InceptionV3')
+    snapshot = model.snapshots.create(snapshot_name='imagenet-pretrained',
+                                      description='COCO pretrained model',
+                                      dataset_id=None,
+                                      configuration={'weights_filename': 'model.hdf5',
+                                                     'classes_filename': 'classes.json'},
+                                      project_id=project.id,
+                                      bucket=bucket,
+                                      labels=[])
+
+#
+# if __name__ == "__main__":
+#     train()
