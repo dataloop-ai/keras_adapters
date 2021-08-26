@@ -1,5 +1,5 @@
 ## Keras Dataloop Model Adapters
-These are Keras models adapter examples. Currently, we create two:
+These are Keras model adapters examples. Currently, we created two:
 1. InceptionV3 (inception_adapter.py)
 1. ResNet50 (resnet_adapter.py)
 
