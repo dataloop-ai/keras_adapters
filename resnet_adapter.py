@@ -1,14 +1,17 @@
 import dtlpy as dl
-import keras
+import tensorflow as tf
+import tensorflow.keras
 import traceback
-from keras.applications.resnet50 import ResNet50
-from keras.preprocessing import image
-from keras.applications.resnet50 import preprocess_input, decode_predictions
-from keras.backend import tf
-# import tensorflow as tf
+from tensorflow.keras.applications.resnet50 import ResNet50
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
+# from tensorflow.keras.backend import tf
 import numpy as np
+import json
 import os
 import itertools
+from skimage.transform import resize
+
 VER = '1.0.0'
 
 # implementation base on https://keras.io/api/applications/
@@ -18,8 +21,10 @@ class ModelAdapter(dl.BaseModelAdapter):
     Specific Model adapter.
     The class bind Dataloop model and snapshot entities with model code implementation
     """
-    _defaults = {
-        'weights_source': 'imagenet'
+    configuration = {
+        'weights_filename': 'model.h5',
+        'classes_filename': 'classes.json',
+        'input_shape': (224, 224, 3)
     }
 
     def __init__(self, model_entity):
@@ -38,46 +43,37 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         :param local_path: not used
         """
+        classes_filename = self.configuration['classes_filename']
+        weights_filename = self.configuration['weights_filename']
+        # load classes
+        with open(os.path.join(local_path, classes_filename)) as f:
+            self.label_map = json.load(f)
 
-        input_shape = getattr(self, 'input_shape', None)
-        self.model = ResNet50(weights=self.weights_source, input_shape=input_shape, include_top=True)
-        self.graph = tf.get_default_graph()
-        # try:
-        #     # https://stackoverflow.com/a/59238039/16076929
-        #     self.model._make_predict_function()
-        #     print("Keras workaround worked!")
-        # except Exception as err:
-        #     print("Keras workaround Failed...." + str(err))
-        #     traceback.print_exc()
-        # try:
-        #     keras.backend.clear_session()
-        #     print("Keras workaround 2 Worked!")
-        # except Exception as err:
-        #     print("Keras workaround 2 Failed...." + str(err))
-        #     traceback.print_exc()
-
-        msg = "ResNet50 Model loaded. Keras version {}".format(keras.__version__)
-        self.logger.info(msg)
-        print(msg)
-        #keras_dir = os.environ.get('KERAS_HOME', '')
-        keras_dir = os.path.expanduser('~/.keras')
-        keras_models_dir = os.path.join(keras_dir, 'models')
-        msg = "Load complete. Keras dir {} content: {}".format(keras_models_dir, os.listdir(keras_models_dir))
-        self.logger.info(msg)
-        print(msg)
+        # self.sess = tf.Session()
+        # self.graph = tf.get_default_graph()
+        # tf.keras.backend.set_session(self.sess)
+        model_path = os.path.join(local_path, weights_filename)
+        self.model = keras.models.load_model(model_path)
+        self.logger.info("Loaded model from {} successfully".format(model_path))
         self.model.summary()
+
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
-
-            Virtual method - need to implement
-
             the function is called in save_to_snapshot which first save locally and then uploads to snapshot entity
-
         :param local_path: `str` directory path in local FileSystem
         """
         # no training hence no saving implemented
-        raise NotImplementedError("Please implement 'save' method in {}".format(self.__class__.__name__))
+        weights_filename = kwargs.get('weights_filename', 'model.hdf5')
+        classes_filename = kwargs.get('classes_filename', 'classes.json')
+
+        self.model.save(os.path.join(local_path, weights_filename))
+        with open(os.path.join(local_path, classes_filename), 'w') as f:
+            json.dump(self.label_map, f)
+        self.snapshot.configuration['weights_filename'] = weights_filename
+        self.snapshot.configuration['classes_filename'] = classes_filename
+        self.snapshot.configuration['label_map'] = self.label_map
+        self.snapshot.update()
 
     def train(self, local_path, dump_path, **kwargs):
         """ Train the model according to data in local_path and save the snapshot to dump_path
@@ -87,20 +83,20 @@ class ModelAdapter(dl.BaseModelAdapter):
         # Currently no training for the resnet model
         raise NotImplementedError("Please implement 'train' method in {}".format(self.__class__.__name__))
 
-    def predict(self, batch, reshape=True):
+    def predict(self, batch, **kwargs):
         """ Model inference (predictions) on batch of images
 
         :param batch: `np.ndarray`
         :param reshape: `bool` is True reshape the input image of the batch to single size, default: False
         :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
-        if reshape:
-            from skimage.transform import resize
-            batch_reshape = []
-            for img in batch:
-                batch_reshape.append(resize(img, output_shape=(224, 224)))
-            # construct as batch
-            batch = np.array(batch_reshape)
+        out_shape_wh = self.configuration['input_shape'][:2]
+        batch_reshape = []
+        for img in batch:
+            batch_reshape.append(resize(img, output_shape=out_shape_wh))
+            # batch_reshape.append(self._predict_preprocess(img, output_wh=out_shape))
+        # construct as batch
+        batch = np.array(batch_reshape)
 
         with self.graph.as_default():
             x = preprocess_input(batch, mode='tf')
@@ -134,4 +130,46 @@ class ModelAdapter(dl.BaseModelAdapter):
         # Not implemented because we don't train the model
         raise NotImplementedError("Please implement 'convert' method in {}".format(self.__class__.__name__))
 
+    def _predict_preprocess(self, img, output_wh):
+        img = resize(img, output_shape=output_wh)
+        img /= 255
+        img *= 2
+        img -= 1
+        return x
 
+
+def model_and_snapshot_creation(env='prod'):
+    dl.setenv(env)
+    project = dl.projects.get('DataloopModels')
+    codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
+                              git_tag='master')
+    model = project.models.create(model_name='ResNet-Keras',
+                                  description='Global Dataloop ResNet implemented in keras',
+                                  output_type=dl.AnnotationType.CLASSIFICATION,
+                                  is_global=True,
+                                  tags=['keras', 'classification'],
+                                  entry_point='resnet_adapter.py',
+                                  # class_name='ModelAdapter',
+                                  codebase=codebase)
+
+    # bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
+    bucket = dl.GCSBucket(gcs_project_name='viewo-main',
+                          gcs_bucket_name='model-mgmt-snapshots',
+                          gcs_prefix='ResNet50_keras')
+    snapshot = model.snapshots.create(snapshot_name='pretrained-resnet',
+                                      description='inception pretrrained using imagenet',
+                                      tags=['pretrained', 'imagenet'],
+                                      dataset_id=None,
+                                      is_global=True,
+                                      # status='trained',
+                                      configuration={'weights_filename': 'resnet50.h5',
+                                                     'classes_filename': 'classes.json',
+                                                     'input_shape': (224, 224, 3)
+                                                     },
+                                      project_id=project.id,
+                                      bucket=bucket,
+                                      # TODO: add the laabel - best as an dl.ml utility
+                                      labels=json.load(
+                                          open(os.path.join(os.path.dirname(__file__), 'imagenet_labels_list.json'))
+                                      )
+                                      )
