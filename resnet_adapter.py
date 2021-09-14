@@ -1,6 +1,6 @@
 import dtlpy as dl
 import tensorflow as tf
-import tensorflow.keras
+from  tensorflow import keras
 import traceback
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.preprocessing import image
@@ -94,9 +94,9 @@ class ModelAdapter(dl.BaseModelAdapter):
         # construct as batch
         batch = np.array(batch_reshape)
 
-        with self.graph.as_default():
-            x = preprocess_input(batch, mode='tf')
-            preds = self.model.predict(x)
+        # with self.graph.as_default():
+        x = preprocess_input(batch)   # , mode='tf')
+        preds = self.model.predict(x)
 
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
