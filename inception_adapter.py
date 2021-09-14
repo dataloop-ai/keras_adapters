@@ -11,21 +11,21 @@ from dtlpy.ml import train_utils
 from dtlpy.ml.ml_dataset import get_keras_dataset
 
 
-class InceptionAdapter(dl.BaseModelAdapter):
+class ModelAdapter(dl.BaseModelAdapter):
     """
     Inception V3 adapter
     implementation base on https://keras.io/api/applications/
     The class bind Dataloop model and snapshot entities with model code implementation
     """
 
-    configurations = {
+    configuration = {
         'weights_filename': 'model.hdf5',
         'classes_filename': 'classes.json',
         'input_shape': (299, 299)
     }
 
     def __init__(self, model_entity):
-        super(InceptionAdapter, self).__init__(model_entity)
+        super(ModelAdapter, self).__init__(model_entity)
 
     def load(self, local_path, **kwargs):
         """ Loads model and populates self.model with a `runnable` model
@@ -200,7 +200,7 @@ def model_and_snapshot_creation(env='prod'):
                                   is_global=True,
                                   tags=['keras', 'classification'],
                                   entry_point='inception_adapter.py',
-                                  class_name='InceptionAdapter',
+                                  # class_name='ModelAdapter',
                                   codebase=codebase)
 
     # bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
