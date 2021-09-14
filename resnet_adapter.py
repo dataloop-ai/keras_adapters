@@ -12,8 +12,6 @@ import os
 import itertools
 from skimage.transform import resize
 
-VER = '1.0.0'
-
 # implementation base on https://keras.io/api/applications/
 
 class ModelAdapter(dl.BaseModelAdapter):
@@ -30,12 +28,11 @@ class ModelAdapter(dl.BaseModelAdapter):
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
         self.graph = None
-        print("Initialized model_adapter {!r}. Version {}".format(self.model_name, VER))
+        print("Initialized model_adapter {!r}.".format(self.model_name))
 
     # ===============================
     # NEED TO IMPLEMENT THESE METHODS
     # ===============================
-
     def load(self, local_path, **kwargs):
         """ Loads model and populates self.model with a `runnable` model
 
@@ -56,7 +53,6 @@ class ModelAdapter(dl.BaseModelAdapter):
         self.model = keras.models.load_model(model_path)
         self.logger.info("Loaded model from {} successfully".format(model_path))
         self.model.summary()
-
 
     def save(self, local_path, **kwargs):
         """ saves configuration and weights locally
@@ -142,7 +138,7 @@ def model_and_snapshot_creation(env='prod'):
     dl.setenv(env)
     project = dl.projects.get('DataloopModels')
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
-                              git_tag='master')
+                              git_tag='main')
     model = project.models.create(model_name='ResNet-Keras',
                                   description='Global Dataloop ResNet implemented in keras',
                                   output_type=dl.AnnotationType.CLASSIFICATION,
@@ -152,7 +148,6 @@ def model_and_snapshot_creation(env='prod'):
                                   # class_name='ModelAdapter',
                                   codebase=codebase)
 
-    # bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
     bucket = dl.GCSBucket(gcs_project_name='viewo-main',
                           gcs_bucket_name='model-mgmt-snapshots',
                           gcs_prefix='ResNet50_keras')

@@ -193,7 +193,7 @@ def model_and_snapshot_creation(env='prod'):
     dl.setenv(env)
     project = dl.projects.get('DataloopModels')
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
-                              git_tag='master')
+                              git_tag='main')
     model = project.models.create(model_name='InceptionV3',
                                   description='Global Dataloop inception V3 implemented in keras',
                                   output_type=dl.AnnotationType.CLASSIFICATION,
@@ -203,7 +203,6 @@ def model_and_snapshot_creation(env='prod'):
                                   # class_name='ModelAdapter',
                                   codebase=codebase)
 
-    # bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
     bucket = dl.GCSBucket(gcs_project_name='viewo-main',
                           gcs_bucket_name='model-mgmt-snapshots',
                           gcs_prefix='InceptionV3')
