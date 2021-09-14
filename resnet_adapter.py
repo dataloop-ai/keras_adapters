@@ -71,7 +71,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         self.snapshot.configuration['label_map'] = self.label_map
         self.snapshot.update()
 
-    def train(self, local_path, dump_path, **kwargs):
+    def train(self, local_path, output_path, **kwargs):
         """ Train the model according to data in local_path and save the snapshot to dump_path
 
             Virtual method - need to implement
@@ -113,7 +113,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         return batch_predictions
 
-    def convert(self, local_path, **kwargs):
+    def convert_from_dtlpy(self, local_path, **kwargs):
         """ Convert Dataloop structure data to model structured
 
             Virtual method - need to implement
