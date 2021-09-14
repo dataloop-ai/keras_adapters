@@ -11,7 +11,7 @@ from dtlpy.ml import train_utils
 from dtlpy.ml.ml_dataset import get_keras_dataset
 
 
-class ModelAdapter(dl.BaseModelAdapter):
+class InceptionAdapter(dl.BaseModelAdapter):
     """
     Inception V3 adapter
     implementation base on https://keras.io/api/applications/
@@ -25,7 +25,7 @@ class ModelAdapter(dl.BaseModelAdapter):
     }
 
     def __init__(self, model_entity):
-        super(ModelAdapter, self).__init__(model_entity)
+        super(InceptionAdapter, self).__init__(model_entity)
 
     def load(self, local_path, **kwargs):
         """ Loads model and populates self.model with a `runnable` model
@@ -189,33 +189,39 @@ def train():
                                    'input_size': 256}
 
 
-def global_creation():
-    project = dl.projects.get('COCO ors')
-    # codebase = dl.create(
-    #     src_path=r'E:\ModelsZoo\pytorch_adapters-master',
-    #     entry_point='resnet_adapter.py'
-    # )
+def model_and_snapshot_creation(env='prod'):
+    dl.setenv(env)
+    project = dl.projects.get('DataloopModels')
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
                               git_tag='master')
     model = project.models.create(model_name='InceptionV3',
+                                  description='Global Dataloop inception V3 implemented in keras',
                                   output_type=dl.AnnotationType.CLASSIFICATION,
                                   is_global=True,
+                                  tags=['keras', 'classification'],
                                   entry_point='inception_adapter.py',
-                                  class_name='ModelAdapter',
+                                  class_name='InceptionAdapter',
                                   codebase=codebase)
 
-    bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
+    # bucket = dl.LocalBucket(local_path=r'E:\ModelsZoo\YOLOX-main\YOLOX_outputs\yolox_l')
     bucket = dl.GCSBucket(gcs_project_name='viewo-main',
                           gcs_bucket_name='model-mgmt-snapshots',
                           gcs_prefix='InceptionV3')
-    snapshot = model.snapshots.create(snapshot_name='imagenet-pretrained',
-                                      description='COCO pretrained model',
+    snapshot = model.snapshots.create(snapshot_name='pretrained-inception',
+                                      description='inception pretrrained using imagenet',
+                                      tags=['pretrained', 'imagenet'],
                                       dataset_id=None,
+                                      is_global=True,
+                                      # status='trained',
                                       configuration={'weights_filename': 'model.hdf5',
                                                      'classes_filename': 'classes.json'},
                                       project_id=project.id,
                                       bucket=bucket,
-                                      labels=[])
+                                      # TODO: add the laabel - best as an dl.ml utility
+                                      labels=json.load(
+                                          open(os.path.join(os.path.dirname(__file__), 'imagenet_labels_list.json'))
+                                        )
+                                      )
 
 #
 # if __name__ == "__main__":
