@@ -8,7 +8,7 @@ from skimage.transform import resize
 
 import dtlpy as dl
 from dtlpy.ml import train_utils
-from dtlpy.ml.ml_dataset import get_keras_dataset
+from dtlpy.ml.dataset_generators.tf_dataset_generator import DataGenerator
 
 
 class ModelAdapter(dl.BaseModelAdapter):
@@ -94,18 +94,18 @@ class ModelAdapter(dl.BaseModelAdapter):
         transforms = [
             preprocess
         ]
-        train_dataset = get_keras_dataset()(data_path=os.path.join(data_path, 'train'),
-                                            dataset_entity=self.snapshot.dataset,
-                                            annotation_type=dl.AnnotationType.CLASSIFICATION,
-                                            transforms=transforms,
-                                            batch_size=batch_size,
-                                            to_categorical=True)
-        val_dataset = get_keras_dataset()(data_path=os.path.join(data_path, 'validation'),
-                                          dataset_entity=self.snapshot.dataset,
-                                          annotation_type=dl.AnnotationType.CLASSIFICATION,
-                                          batch_size=batch_size,
-                                          transforms=transforms,
-                                          to_categorical=True)
+        train_dataset = DataGenerator(data_path=os.path.join(data_path, 'train'),
+                                      dataset_entity=self.snapshot.dataset,
+                                      annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                      transforms=transforms,
+                                      batch_size=batch_size,
+                                      to_categorical=True)
+        val_dataset = DataGenerator(data_path=os.path.join(data_path, 'validation'),
+                                    dataset_entity=self.snapshot.dataset,
+                                    annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                    batch_size=batch_size,
+                                    transforms=transforms,
+                                    to_categorical=True)
 
         # replace head with new number of calsses
         output = self.model.layers[-2].output
@@ -125,7 +125,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param batch: `np.ndarray`
         :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
-        config = self.configurations
+        config = self.configuration
         config.update(self.snapshot.configuration)
         input_size = config.get('input_size', (299, 299))
 
@@ -219,7 +219,7 @@ def model_and_snapshot_creation(env='prod'):
                                       # TODO: add the laabel - best as an dl.ml utility
                                       labels=json.load(
                                           open(os.path.join(os.path.dirname(__file__), 'imagenet_labels_list.json'))
-                                        )
+                                      )
                                       )
 
 #
