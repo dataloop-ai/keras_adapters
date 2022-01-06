@@ -1,6 +1,6 @@
 import dtlpy as dl
 import tensorflow as tf
-from  tensorflow import keras
+from tensorflow import keras
 import traceback
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.preprocessing import image
@@ -11,6 +11,7 @@ import json
 import os
 import itertools
 from skimage.transform import resize
+
 
 # implementation base on https://keras.io/api/applications/
 
@@ -95,13 +96,13 @@ class ModelAdapter(dl.BaseModelAdapter):
         batch = np.array(batch_reshape)
 
         # with self.graph.as_default():
-        x = preprocess_input(batch)   # , mode='tf')
+        x = preprocess_input(batch)  # , mode='tf')
         preds = self.model.predict(x)
 
         # pred is a list (by scores) of tuples (idx, label_name, score)
         batch_predictions = []
         for pred in decode_predictions(preds):
-            pred_label, pred_score = pred[0][1:3]   # 0 - state the first (highest) predictions
+            pred_label, pred_score = pred[0][1:3]  # 0 - state the first (highest) predictions
             item_pred = dl.ml.predictions_utils.add_classification(
                 label=pred_label,
                 score=pred_score,

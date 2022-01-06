@@ -34,15 +34,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
         :param local_path: if None uses default of kears.application
         """
-        classes_filename = self.snapshot.configuration.get('classes_filename', 'classes.json')
         weights_filename = self.snapshot.configuration.get('weights_filename', 'model.hdf5')
-        # load classes
-        with open(os.path.join(local_path, classes_filename)) as f:
-            self.label_map = json.load(f)
-
-        # self.sess = tf.Session()
-        # self.graph = tf.get_default_graph()
-        # tf.keras.backend.set_session(self.sess)
         model_path = os.path.join(local_path, weights_filename)
         self.model = keras.models.load_model(os.path.join(local_path, weights_filename))
         self.logger.info("Loaded model from {} successfully".format(model_path))
@@ -60,26 +52,16 @@ class ModelAdapter(dl.BaseModelAdapter):
         # See https://keras.io/guides/serialization_and_saving/  - which best method to save  (they recomand without h5 file)
         # self.model.save(local_path="{}.{}".format(local_path, self.model_fname))
         weights_filename = kwargs.get('weights_filename', 'model.hdf5')
-        classes_filename = kwargs.get('classes_filename', 'classes.json')
-
         self.model.save(os.path.join(local_path, weights_filename))
-        with open(os.path.join(local_path, classes_filename), 'w') as f:
-            json.dump(self.label_map, f)
-        self.snapshot.configuration['weights_filename'] = weights_filename
-        self.snapshot.configuration['classes_filename'] = classes_filename
-        self.snapshot.configuration['label_map'] = self.label_map
-        self.snapshot.update()
 
     def train(self, data_path, output_path, **kwargs):
         """ Train the model according to data in local_path and save the snapshot to dump_path
 
             Virtual method - need to implement
         """
-        config = self.configurations
-        config.update(self.snapshot.configuration)
-        num_epochs = config.get('num_epochs', 10)
-        batch_size = config.get('batch_size', 64)
-        input_size = config.get('input_size', (299, 299))
+        num_epochs = self.configuration.get('num_epochs', 10)
+        batch_size = self.configuration.get('batch_size', 64)
+        input_size = self.configuration.get('input_size', (299, 299))
 
         ####################
         # Prepare the data #
@@ -125,9 +107,8 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param batch: `np.ndarray`
         :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
-        config = self.configuration
-        config.update(self.snapshot.configuration)
-        input_size = config.get('input_size', (299, 299))
+        configuration = self.configuration
+        input_size = configuration.get('input_size', (299, 299))
 
         def preprocess(x):
             x = resize(x, output_shape=input_size)
@@ -143,7 +124,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         preds = self.model.predict(batch)
         batch_collection = list()
         for pred in preds:
-            label = self.label_map[str(np.argmax(pred))]
+            label = self.snapshot.id_to_label_map[str(np.argmax(pred))]
             score = np.max(pred)
             annotations = dl.AnnotationCollection()
             annotations.add(annotation_definition=dl.Classification(label=label),
@@ -168,29 +149,22 @@ class ModelAdapter(dl.BaseModelAdapter):
 
 
 def train():
-    dl.setenv('prod')
-    project = dl.projects.get('COCO ors', '729659ec-6d7f-11e8-8d00-42010a8a002b')
-    model = project.models.get('inceptionv3')
+    project = dl.projects.get('My Project')
+    model = project.models.get('InceptionV3')
     snapshot = model.snapshots.get('sheep-soft-augmentations')
     model.snapshots.list().to_df()
-    self = model.build()
-    self.load_from_snapshot(snapshot=snapshot,
-                            local_path=snapshot.bucket.local_path)
-    root_path, data_path, output_path = train_utils.prepare_training(snapshot=snapshot,
-                                                                     adapter=self,
-                                                                     root_path=os.path.join('tmp', snapshot.id))
+    adapter = model.build()
+    adapter.load_from_snapshot(snapshot=snapshot,
+                               local_path=snapshot.bucket.local_path)
+    root_path, data_path, output_path = adapter.prepare_training(root_path=os.path.join('tmp', snapshot.id))
     # Start the Train
     print("Training {!r} with snapshot {!r} on data {!r}".format(model.name, snapshot.id, data_path))
     print("Starting train with data at {}".format(data_path))
-
-    self.snapshot.configuration = {'batch_size': 16,
-                                   'start_epoch': 0,
-                                   'num_epochs': 2,
-                                   'input_size': 256}
+    adapter.train(data_path=data_path,
+                  output_path=output_path)
 
 
-def model_and_snapshot_creation(env='prod'):
-    dl.setenv(env)
+def model_and_snapshot_creation():
     project = dl.projects.get('DataloopModels')
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
                               git_tag='main')
