@@ -7,8 +7,8 @@ import os
 from skimage.transform import resize
 
 import dtlpy as dl
-from dtlpy.ml import train_utils
-from dtlpy.ml.dataset_generators.tf_dataset_generator import DataGenerator
+from dtlpy.utilities.dataset_generators.dataset_generator import collate_tf
+from dtlpy.utilities.dataset_generators.dataset_generator_tensorflow import DatasetGeneratorTensorflow
 
 
 class ModelAdapter(dl.BaseModelAdapter):
@@ -76,18 +76,20 @@ class ModelAdapter(dl.BaseModelAdapter):
         transforms = [
             preprocess
         ]
-        train_dataset = DataGenerator(data_path=os.path.join(data_path, 'train'),
-                                      dataset_entity=self.snapshot.dataset,
-                                      annotation_type=dl.AnnotationType.CLASSIFICATION,
-                                      transforms=transforms,
-                                      batch_size=batch_size,
-                                      to_categorical=True)
-        val_dataset = DataGenerator(data_path=os.path.join(data_path, 'validation'),
-                                    dataset_entity=self.snapshot.dataset,
-                                    annotation_type=dl.AnnotationType.CLASSIFICATION,
-                                    batch_size=batch_size,
-                                    transforms=transforms,
-                                    to_categorical=True)
+        train_dataset = DatasetGeneratorTensorflow(data_path=os.path.join(data_path, 'train'),
+                                                   dataset_entity=self.snapshot.dataset,
+                                                   annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                                   transforms=transforms,
+                                                   batch_size=batch_size,
+                                                   to_categorical=True,
+                                                   collate_fn=collate_tf)
+        val_dataset = DatasetGeneratorTensorflow(data_path=os.path.join(data_path, 'validation'),
+                                                 dataset_entity=self.snapshot.dataset,
+                                                 annotation_type=dl.AnnotationType.CLASSIFICATION,
+                                                 batch_size=batch_size,
+                                                 transforms=transforms,
+                                                 to_categorical=True,
+                                                 collate_fn=collate_tf)
 
         # replace head with new number of calsses
         output = self.model.layers[-2].output
@@ -124,7 +126,8 @@ class ModelAdapter(dl.BaseModelAdapter):
         preds = self.model.predict(batch)
         batch_collection = list()
         for pred in preds:
-            label = self.snapshot.id_to_label_map[str(np.argmax(pred))]
+            # label = self.snapshot.id_to_label_map[str(np.argmax(pred))]
+            label = np.argmax(pred)
             score = np.max(pred)
             annotations = dl.AnnotationCollection()
             annotations.add(annotation_definition=dl.Classification(label=label),
@@ -133,7 +136,7 @@ class ModelAdapter(dl.BaseModelAdapter):
                                 'confidence': float(score),
                                 'modelId': self.model_entity.id,
                                 'snapshotId': self.snapshot.id
-                            })
+            })
             batch_collection.append(annotations)
         return batch_collection
 
