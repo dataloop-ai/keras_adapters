@@ -167,8 +167,8 @@ def train():
                   output_path=output_path)
 
 
-def model_and_snapshot_creation():
-    project = dl.projects.get('DataloopModels')
+def model_and_snapshot_creation(project_name):
+    project = dl.projects.get(project_name)
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
                               git_tag='main')
     model = project.models.create(model_name='InceptionV3',
