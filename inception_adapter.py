@@ -126,8 +126,8 @@ class ModelAdapter(dl.BaseModelAdapter):
         preds = self.model.predict(batch)
         batch_collection = list()
         for pred in preds:
-            # label = self.snapshot.id_to_label_map[str(np.argmax(pred))]
-            label = np.argmax(pred)
+            label = self.snapshot.id_to_label_map[str(np.argmax(pred))]
+#             label = np.argmax(pred)
             score = np.max(pred)
             annotations = dl.AnnotationCollection()
             annotations.add(annotation_definition=dl.Classification(label=label),
