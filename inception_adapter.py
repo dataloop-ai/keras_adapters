@@ -18,11 +18,6 @@ class ModelAdapter(dl.BaseModelAdapter):
     The class bind Dataloop model and snapshot entities with model code implementation
     """
 
-    configuration = {
-        'weights_filename': 'model.hdf5',
-        'classes_filename': 'classes.json',
-        'input_shape': (299, 299)
-    }
 
     def __init__(self, model_entity):
         super(ModelAdapter, self).__init__(model_entity)
@@ -50,7 +45,6 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param local_path: `str` directory path in local FileSystem
         """
         # See https://keras.io/guides/serialization_and_saving/  - which best method to save  (they recomand without h5 file)
-        # self.model.save(local_path="{}.{}".format(local_path, self.model_fname))
         weights_filename = kwargs.get('weights_filename', 'model.hdf5')
         self.model.save(os.path.join(local_path, weights_filename))
 
@@ -67,6 +61,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         # Prepare the data #
         ####################
         def preprocess(x):
+            x.convert('RGB')
             x = resize(x, output_shape=input_size)
             x /= 255
             x *= 2
@@ -91,7 +86,7 @@ class ModelAdapter(dl.BaseModelAdapter):
                                                  to_categorical=True,
                                                  collate_fn=collate_tf)
 
-        # replace head with new number of calsses
+        # replace head with new number of classes
         output = self.model.layers[-2].output
         pred = Dense(train_dataset.num_classes, activation='softmax')(output)
         self.model = Model(inputs=self.model.input, outputs=pred)
@@ -109,8 +104,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         :param batch: `np.ndarray`
         :return: `List[dl.AnnotationCollection]`  prediction results by len(batch)
         """
-        configuration = self.configuration
-        input_size = configuration.get('input_size', (299, 299))
+        input_size = self.configuration.get('input_size', (299, 299))
 
         def preprocess(x):
             x = resize(x, output_shape=input_size)
@@ -151,24 +145,10 @@ class ModelAdapter(dl.BaseModelAdapter):
         ...
 
 
-def train():
-    project = dl.projects.get('My Project')
-    model = project.models.get('InceptionV3')
-    snapshot = model.snapshots.get('sheep-soft-augmentations')
-    model.snapshots.list().to_df()
-    adapter = model.build()
-    adapter.load_from_snapshot(snapshot=snapshot,
-                               local_path=snapshot.bucket.local_path)
-    root_path, data_path, output_path = adapter.prepare_training(root_path=os.path.join('tmp', snapshot.id))
-    # Start the Train
-    print("Training {!r} with snapshot {!r} on data {!r}".format(model.name, snapshot.id, data_path))
-    print("Starting train with data at {}".format(data_path))
-    adapter.train(data_path=data_path,
-                  output_path=output_path)
-
 
 def model_and_snapshot_creation(project_name):
     project = dl.projects.get(project_name)
+    labels = json.load(open(os.path.join(os.path.dirname(__file__), 'imagenet_labels_list.json')))
     codebase = dl.GitCodebase(git_url='https://github.com/dataloop-ai/keras_adapters.git',
                               git_tag='main')
     model = project.models.create(model_name='InceptionV3',
@@ -176,29 +156,27 @@ def model_and_snapshot_creation(project_name):
                                   output_type=dl.AnnotationType.CLASSIFICATION,
                                   is_global=True,
                                   tags=['keras', 'classification'],
+                                  default_runtime=dl.KubernetesRuntime(),
                                   entry_point='inception_adapter.py',
-                                  # class_name='ModelAdapter',
                                   codebase=codebase)
 
     bucket = dl.GCSBucket(gcs_project_name='viewo-main',
                           gcs_bucket_name='model-mgmt-snapshots',
                           gcs_prefix='InceptionV3')
     snapshot = model.snapshots.create(snapshot_name='pretrained-inception',
-                                      description='inception pretrrained using imagenet',
+                                      description='inception pretrained using imagenet',
                                       tags=['pretrained', 'imagenet'],
                                       dataset_id=None,
                                       is_global=True,
                                       # status='trained',
-                                      configuration={'weights_filename': 'model.hdf5',
-                                                     'classes_filename': 'classes.json'},
+                                      configuration={'weights_filename': 'model.hdf5'},
+                                      id_to_label_map={ind: label for ind, label in
+                                                                         enumerate(labels)},
                                       project_id=project.id,
                                       bucket=bucket,
-                                      # TODO: add the laabel - best as an dl.ml utility
-                                      labels=json.load(
-                                          open(os.path.join(os.path.dirname(__file__), 'imagenet_labels_list.json'))
-                                      )
+                                      labels=labels
                                       )
 
-#
+
 # if __name__ == "__main__":
 #     train()
