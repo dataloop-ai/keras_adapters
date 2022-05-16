@@ -61,7 +61,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         # Prepare the data #
         ####################
         def preprocess(x):
-            x.convert('RGB')
+            # x.convert('RGB')
             x = resize(x, output_shape=input_size)
             x /= 255
             x *= 2
@@ -76,14 +76,14 @@ class ModelAdapter(dl.BaseModelAdapter):
                                                    annotation_type=dl.AnnotationType.CLASSIFICATION,
                                                    transforms=transforms,
                                                    batch_size=batch_size,
-                                                   to_categorical=True,
+                                                #    to_categorical=True,
                                                    collate_fn=collate_tf)
         val_dataset = DatasetGeneratorTensorflow(data_path=os.path.join(data_path, 'validation'),
                                                  dataset_entity=self.snapshot.dataset,
                                                  annotation_type=dl.AnnotationType.CLASSIFICATION,
                                                  batch_size=batch_size,
                                                  transforms=transforms,
-                                                 to_categorical=True,
+                                                #  to_categorical=True,
                                                  collate_fn=collate_tf)
 
         # replace head with new number of classes
@@ -169,9 +169,9 @@ def model_and_snapshot_creation(project_name):
                                       dataset_id=None,
                                       is_global=True,
                                       # status='trained',
-                                      configuration={'weights_filename': 'model.hdf5'},
-                                      id_to_label_map={ind: label for ind, label in
-                                                                         enumerate(labels)},
+                                      configuration={'weights_filename': 'model.hdf5',
+                                                    'id_to_label_map':{ind: label for ind, label in
+                                                                         enumerate(labels)}},
                                       project_id=project.id,
                                       bucket=bucket,
                                       labels=labels
